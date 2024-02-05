@@ -1,0 +1,18 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Subleecher main.py",
+            "type": "python",
+            "request": "launch",
+            "program": "main.py",
+            //"args": ["C:\\Users\\Markos\\Videos\\The Wheel of Time\\S01\\*.mkv"],
+            "args": ["C:\\Users\\Markos\\Videos\\The Wheel of Time\\S02\\The.Wheel.of.Time.S02E01.720p.AMZN.WEBRip.x264[eztv.re].mkv"],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
+    ]
+}
