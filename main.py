@@ -6,7 +6,7 @@ import shutil
 import traceback
 import requests
 import yaml
-from typing import Any, Callable, Iterable, TypeVar
+from typing import Any, Callable, Generic, Iterable, TypeVar
 from argparse import ArgumentParser
 from appdirs import user_config_dir
 from braceexpand import braceexpand
@@ -31,6 +31,8 @@ def main(*video_paths: str, app_name: str, api_key: str, username: str = None, p
 	if not video_paths or not len(video_paths):
 		raise ValueError('At least one video path must be provided')
 
+	subtitle_comparer = SubtitleComparer(languages)
+
 	try:
 		api = OpenSubtitles(app_name, api_key)
 
@@ -43,7 +45,7 @@ def main(*video_paths: str, app_name: str, api_key: str, username: str = None, p
 			subtitles = [x for x in subtitles if not x.attributes.ai_translated and not x.attributes.machine_translated]
 
 			# Sort subtitle results by criteria defined in comparer
-			subtitles = sorted(subtitles, key=functools.cmp_to_key(lambda a, b: subtitle_comparer(a, b, languages)))
+			subtitles = sorted(subtitles, key=functools.cmp_to_key(lambda a, b: subtitle_comparer(a, b)))
 			subtitles: list[Subtitle]
 
 			selected[video_path] = selection_ui(subtitles, video_path)
@@ -101,21 +103,48 @@ def trunc(value, decimals):
 	return int(value * (10**decimals)) / (10**decimals)
 
 
-def compareByArray(array: list[T], a: U, b: U, selector: Callable[[U], T] = lambda x: x):
+def cmp_by_array(array: list[T], a: U, b: U, selector: Callable[[U], T] = lambda x: x) -> int:
 	return array.index(selector(a)) - array.index(selector(b))
 
 
-# sort: language -> from_trusted -> hearing_impaired
-def subtitle_comparer(a: Subtitle, b: Subtitle, langs_order: list[str]):
-	d = compareByArray(langs_order, a, b, lambda x: x.attributes.language)
-	if d != 0:
-		return d
+def cmp_by_attribute(a: U, b: U, selector: Callable[[U], T] = lambda x: x, descending=False) -> int:
+	x, y = selector(a), selector(b)
 
-	d = b.attributes.from_trusted - a.attributes.from_trusted
-	if d != 0:
-		return d
+	if descending:
+		x, y = y, x
 
-	return a.attributes.hearing_impaired - b.attributes.hearing_impaired
+	return x - y
+
+
+class CmpSpec(Generic[T]):
+
+	def __init__(self, fn: Callable[[T, T, Callable[[T], Any]], int], selector: Callable[[T], Any], *args, **kwargs) -> None:
+		self.fn = fn
+		self.selector = selector
+		self.args = args
+		self.kwargs = kwargs
+
+	def __call__(self, a: T, b: T) -> int:
+		return self.fn(a, b, self.selector, *self.args, **self.kwargs)
+
+
+class SubtitleComparer:
+
+	def __init__(self, langs_order: list[str]) -> None:
+
+		self._comparers: list[Callable[[Subtitle, Subtitle], int]] = [
+		    lambda a, b: cmp_by_array(langs_order, a, b, lambda x: x.attributes.language),
+		    lambda a, b: cmp_by_attribute(a, b, lambda x: x.attributes.from_trusted, True),
+		    lambda a, b: cmp_by_attribute(a, b, lambda x: x.attributes.hearing_impaired),
+		]
+
+	def __call__(self, a: Subtitle, b: Subtitle) -> int:
+		for cmp in self._comparers:
+			d = cmp(a, b)
+			if d != 0:
+				return d
+
+		return 0
 
 
 def selection_ui(subtitles: list[Subtitle], video: str) -> list[Subtitle]:
