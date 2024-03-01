@@ -11,7 +11,7 @@ class File(object):
 		self.path = path
 		self.size = os.path.getsize(path)
 
-	def get_hash(self):
+	def get_hash(self) -> str:
 		if self.size < 65536 * 2:
 			raise ValueError('File is too small')
 

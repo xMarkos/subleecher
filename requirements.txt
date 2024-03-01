@@ -3,3 +3,6 @@ pydantic
 braceexpand
 appdirs
 pyyaml
+regex
+pyinstaller
+yapf
